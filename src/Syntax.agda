@@ -2,25 +2,8 @@ module Syntax where
 
 open import Agda.Primitive
 open import Prelude.Monoidal
-open import Prelude.List
-open import Prelude.Families
 open import Prelude.Path
-open import Prelude.Natural
-
-Fam₀ : Set → Set₁
-Fam₀ = Fam lzero
-
-∫↓ : ∀ {a b} {X : Set a} → (X → Set b) → Set (a ⊔ b)
-∫↓ {X = X} P = ∀ {x} → P x
-
-∫↑ : ∀ {a b} {X : Set a} → (X → Set b) → Set (a ⊔ b)
-∫↑ {X = X} P = Σ[ X ∋ x ] P x
-
-syntax ∫↓ {X = X} (λ x → P) = ∫↓[ x ∶ X ] P
-syntax ∫↑ {X = X} (λ x → P) = ∫↑[ x ∶ X ] P
-
-open List using (◇; □; _++_)
-open Π using (_∘_)
+open import Basis
 
 -- valences
 record Vl (𝒮 : Set) : Set where
@@ -60,61 +43,50 @@ infix 2 _⁍_
 open Sign public
 
 -- Our semantic universe
-𝓤 : Sign → Set₁
-𝓤 Σ = Vl (𝒮 Σ) → Set
+𝓤 : Set → Set₁
+𝓤 𝒮 = Vl 𝒮 → Set
+
+-- Tensor
+_⊙_ : {𝒮 : Set} → 𝓤 𝒮 → 𝓤 𝒮 → 𝓤 𝒮
+_⊙_ P Q ([ Γ ]· τ) = ∫↑[ Δ ∶ _ ] (P ([ Δ ]· τ) ⊗ □ (Q ∘ [ Γ ]·_) Δ)
+
+infix 3 _⊙_
+
+-- The variable object
+1𝓥 : {𝒮 : Set} → 𝓤 𝒮
+1𝓥 ([ Γ ]· τ) = ◇ (_≡ τ) Γ
+
+-- The metavariable endofunctor
+data 2𝓥 {𝒮 : Set} (Ω : _) (𝒜 : 𝓤 𝒮) : 𝓤 𝒮 where
+  meta-app
+    : ∀ {Γ Δ τ}
+    → ◇ (_≡ [ Δ ]· τ) Ω
+    → □ (𝒜 ∘ [ Γ ]·_) Δ
+    → 2𝓥 Ω 𝒜 ([ Γ ]· τ)
 
 -- The signature endofunctor
-data 𝓕[_] (Σ : Sign) (𝒜 : 𝓤 Σ) : 𝓤 Σ where
+data 𝓕[_] (Σ : Sign) (𝒜 : 𝓤 (𝒮 Σ)) : 𝓤 (𝒮 Σ) where
   app
     : ∀ {Ω Γ τ}
     → 𝒪 Σ (⟅ Ω ⟆· τ) 
     → □ (𝒜 ∘ Γ ⁍_) Ω
     → 𝓕[ Σ ] 𝒜 ([ Γ ]· τ)
 
--- The metavariable endofunctor
-data 𝓥[_] (Σ : Sign) (Ω : 2ctx Σ) (𝒜 : 𝓤 Σ) : 𝓤 Σ where
-  meta-app
-    : ∀ {Γ Δ τ}
-    → ◇ (_≡ [ Δ ]· τ) Ω
-    → □ (𝒜 ∘ [ Γ ]·_) Δ
-    → 𝓥[ Σ ] Ω 𝒜 ([ Γ ]· τ)
-
-_⇒₁_ : ∀ {X} → Fam₀ X → Fam₀ X → Set
-F ⇒₁ G = ∫↓[ x ∶ _ ] (F x → G x)
-
-_⇐₁_ : ∀ {X} → Fam₀ X → Fam₀ X → Set
-F ⇐₁ G = G ⇒₁ F
-
-Var : ∀ {X : Set} → List X → X → Set
-Var Γ τ = ◇ (_≡ τ) Γ
-
-_∣_⊙_ : (Σ : Sign) → 𝓤 Σ → 𝓤 Σ → 𝓤 Σ
-_∣_⊙_ Σ P Q ([ Γ ]· τ) = ∫↑[ Δ ∶ 1ctx Σ ] (P ([ Δ ]· τ) ⊗ □ (Q ∘ [ Γ ]·_) Δ)
-
 -- The term endofunctor
-data 𝓣[_] (Σ : Sign) (Ω : 2ctx Σ) (𝒜 : 𝓤 Σ) : 𝓤 Σ where
-  var
-    : ∀ {Γ τ}
-    → Var Γ τ
-    → 𝓣[ Σ ] Ω 𝒜 ([ Γ ]· τ)
+data 𝓣[_] (Σ : Sign) (Ω : 2ctx Σ) (𝒜 : 𝓤 (𝒮 Σ)) : 𝓤 (𝒮 Σ) where
+  var : 1𝓥 ⇒₁ 𝓣[ Σ ] Ω 𝒜
+  mvar : 2𝓥 Ω 𝒜 ⇒₁ 𝓣[ Σ ] Ω 𝒜
+  op : 𝓕[ Σ ] 𝒜 ⇒₁ 𝓣[ Σ ] Ω 𝒜
 
-  mvar
-    : 𝓥[ Σ ] Ω 𝒜 
-    ⇒₁ 𝓣[ Σ ] Ω 𝒜
-
-  op
-    : 𝓕[ Σ ] 𝒜
-    ⇒₁ 𝓣[ Σ ] Ω 𝒜
-
--- The free language with explicit substitutions over a signature
-data Free[_] (Σ : Sign) (Ω : 2ctx Σ) : 𝓤 Σ where
+-- The free term language with explicit substitutions over a signature
+data Free[_] (Σ : Sign) (Ω : 2ctx Σ) : 𝓤 (𝒮 Σ) where
   roll
     : 𝓣[ Σ ] Ω (Free[ Σ ] Ω)
     ⇒₁ Free[ Σ ] Ω
 
   -- closures / explicit substitutions
   clo
-    : (Σ ∣ Free[ Σ ] Ω ⊙ Free[ Σ ] Ω) 
+    : Free[ Σ ] Ω ⊙ Free[ Σ ] Ω
     ⇒₁ Free[ Σ ] Ω
 
 _∣_▹_⊢_ : (Σ : Sign) (Ω : 2ctx Σ) (Γ : 1ctx Σ) (τ : 𝒮 Σ) → Set
