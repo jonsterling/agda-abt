@@ -35,7 +35,7 @@ record Sign : Set₁ where
   no-eta-equality
   field
     𝒮 : Set₀
-    𝒪 : Fam lzero (Ar 𝒮)
+    𝒪 : Fam₀ (Ar 𝒮)
 
   2ctx : Set
   2ctx = List (Vl 𝒮)
