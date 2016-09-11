@@ -1,0 +1,6 @@
+[submodule "modules"]
+	path = modules
+	url = git@github.com:freebroccolo/agda-prelude.git
+[submodule "modules/agda-prelude"]
+	path = modules/agda-prelude
+	url = git@github.com:freebroccolo/agda-prelude.git
